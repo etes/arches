@@ -424,6 +424,61 @@ class Command(BaseCommand):
                     module = modules[0]
                     shutil.copy(module, module_dir)
                     management.call_command(cmd, 'register', source=module)
+                    
+        def load_permissions(package_dir):
+            """custom load function to add permissions as defined in a package-specific
+            manner
+            
+            1-2-18 pasted in straight from legiongis FPAN project, untested
+            """
+            
+            perm_config_file = os.path.join(package_dir,'permissions_config.json')
+            if not os.path.isfile(perm_config_file):
+                print "no permissions_config.json file in package"
+                return
+                
+            with open(perm_config_file,'rb') as configs:
+                perm_configs = json.load(configs)
+                
+            valid_perms = [
+                'delete_nodegroup',
+                'no_access_to_nodegroup',
+                'read_nodegroup',
+                'write_nodegroup'
+            ]
+            perm_error = False
+            
+            for g_name,data in perm_configs.iteritems():
+                try:
+                    g = Graph.objects.get(name=g_name)
+                    if not g.isresource:
+                        print "graph: {} - Error: this is a Branch, not a Resource Model\n--".format(g_name)
+                        continue
+                    print "graph:",g_name
+                except ObjectDoesNotExist:
+                    print "graph: {} - Error: does not exist\n--".format(g_name)
+                    continue
+                for group_name, perms in data.iteritems():
+                    try:
+                        group = Group.objects.get(name=group_name)
+                        print "  group:",group_name
+                    except ObjectDoesNotExist:
+                        print "    group: {} - Error: does not exist\n--".format(group_name)
+                        continue
+                    for perm_type, card_names in perms.iteritems():
+                        if not perm_type in valid_perms:
+                            print "    permission: {} - Error: invalid permission type".format(perm_type)
+                            perm_error = True
+                            continue
+                        print "    permission:",perm_type
+                        cards,msg = get_cards(card_names,g)
+                        if len(cards) > 0:
+                            print "      cards: "+", ".join(msg)
+                        for c in cards:
+                            assign_perm(perm_type,group,c._nodegroup_cache)
+            
+            if perm_error:
+                print "valid permission types:",valid_perms
 
         def load_widgets(package_dir):
             load_extensions(package_dir, 'widgets', 'widget')
