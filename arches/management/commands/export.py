@@ -20,6 +20,7 @@ import os
 import subprocess
 from arches.app.models.system_settings import settings
 from arches.management.commands import utils
+from arches.app.utils.data_management.permissions.exporter import PermissionsExporter
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
@@ -44,6 +45,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['operation'] == 'shp':
             self.shapefile(dest=options['dest'], table=options['table'])
+        if options['operation'] == 'users':
+            self.users(dest=options['dest'])
 
     def shapefile(self, dest, table):
         geometry_types = {
@@ -71,3 +74,10 @@ class Command(BaseCommand):
                     print "No records in table for export"
         else:
             print 'Cannot export data. Destination directory, {0} already exists'.format(dest)
+
+    def users(self, dest):
+        PermissionsExporter().export_users()
+
+    # def groups(self, dest):
+    #     print 'taco'
+    #     PermissionsExporter().export_groups()
